@@ -57,6 +57,10 @@ async function run() {
       .db("building_management")
       .collection("apartments");
 
+    const UserCollections = client
+      .db("building_management")
+      .collection("users");
+
     app.get("/upload-mock", async (req, res) => {
       data = [];
       // console.log()
@@ -75,6 +79,15 @@ async function run() {
 
     app.get("/apartments", async (req, res) => {
       const result = await ApartmentCollections.find().toArray();
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    });
+
+    app.post("/create-user", async (req, res) => {
+      const data = req.body;
+      const result = await UserCollections.insertOne(data, { new: true });
       res.status(200).json({
         success: true,
         data: result,
