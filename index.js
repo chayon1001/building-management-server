@@ -94,6 +94,42 @@ async function run() {
       });
     });
 
+    app.get("/users", async (req, res) => {
+      const data = req.body;
+      const result = await UserCollections.find().toArray();
+      res.status(200).json({
+        success: true,
+        data: result,
+      });
+    });
+
+    app.post("/login", async (req, res) => {
+      const uid = req.body?.uid;
+
+      const user = await UserCollections.findOne({ uid });
+
+      if (!user?._id) {
+        res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+
+      const token = jwt.sign(
+        { uid: user.uid, userId: user._id, role: user.role },
+        process.env.JWT_SECRET_KEY, // Secret key from environment variable
+        { expiresIn: "24h" } // Token expiration time
+      );
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: user,
+          token: token,
+        },
+      });
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
