@@ -29,7 +29,7 @@ const verifyToken = (req, res, next) => {
 
   // verify the token
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+  jwt.verify(token, process.env.JWT_SECRET_KEY, (err, decoded) => {
     if (err) {
       return res.status(401).send({ message: "unauthorized access" });
     }
@@ -116,7 +116,7 @@ async function run() {
       }
 
       const token = jwt.sign(
-        { uid: user.uid, userId: user._id, role: user.role },
+        { ...user },
         process.env.JWT_SECRET_KEY, // Secret key from environment variable
         { expiresIn: "24h" } // Token expiration time
       );
@@ -127,6 +127,21 @@ async function run() {
           user: user,
           token: token,
         },
+      });
+    });
+
+    app.get("/login-user", verifyToken, async (req, res) => {
+      const user = req.user;
+      if (!user?._id) {
+        res.status(401).json({
+          success: false,
+          message: "User not login",
+        });
+      }
+
+      res.status(200).json({
+        success: true,
+        data: user,
       });
     });
 
