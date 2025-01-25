@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
+const { default: mongoose } = require("mongoose");
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -61,24 +62,20 @@ async function run() {
       .db("building_management")
       .collection("users");
 
-    app.get("/upload-mock", async (req, res) => {
-      data = [];
-      // console.log()
-      //   const deletedResult = await ApartmentCollections.deleteMany({});
-      //   console.log(deletedResult);
-      //   const result = await ApartmentCollections.deleteMany({
-      //     price: { $gt: 1000 },
-      //   });
-
-      const result = await ApartmentCollections.insertMany(data);
+    app.get("/apartments", async (req, res) => {
+      const result = await ApartmentCollections.find().toArray();
       res.status(200).json({
-        message: "Mock data uploaded successfully",
-        insertedCount: result.insertedCount,
+        success: true,
+        data: result,
       });
     });
 
-    app.get("/apartments", async (req, res) => {
-      const result = await ApartmentCollections.find().toArray();
+    app.get("/apartments/:id", async (req, res) => {
+      const { id } = req.params; // Destructure `id` from req.params
+      const result = await ApartmentCollections.findOne({
+        _id: new mongoose.Types.ObjectId(id),
+      });
+
       res.status(200).json({
         success: true,
         data: result,
@@ -142,6 +139,76 @@ async function run() {
       res.status(200).json({
         success: true,
         data: user,
+      });
+
+      app.post("/agreement", verifyToken, async (req, res) => {
+        const { userId, apartmentId, agreementDate } = req.body;
+
+        if (!userId || !apartmentId || !agreementDate) {
+          return res.status(400).json({
+            success: false,
+            message: "Missing required fields",
+          });
+        }
+
+        try {
+          const apartment = await ApartmentCollections?.findOne({
+            _id: new mongoose.Types.ObjectId(apartmentId),
+          });
+
+          if (apartment?.isBooking) {
+            return res.status(404).json({
+              success: false,
+              message: "Apartment already booked",
+            });
+          }
+          // Update the apartment collection with booking details
+          const apartmentUpdate = await ApartmentCollections.updateOne(
+            { _id: new mongoose.Types.ObjectId(apartmentId) }, // Find apartment by ID
+            {
+              $set: {
+                isBooking: true,
+                userId: userId,
+                agreementDate: agreementDate,
+              },
+            }
+          );
+
+          if (apartmentUpdate.modifiedCount === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "Apartment not found or already booked",
+            });
+          }
+
+          // Update the user collection with booked apartment ID
+          const userUpdate = await UserCollections.updateOne(
+            { _id: new mongoose.Types.ObjectId(userId) }, // Find user by ID
+            {
+              $set: {
+                bookingApartment: apartmentId,
+              },
+            }
+          );
+
+          if (userUpdate.modifiedCount === 0) {
+            return res.status(404).json({
+              success: false,
+              message: "User not found",
+            });
+          }
+
+          res.status(200).json({
+            success: true,
+            message: "Apartment booked successfully",
+          });
+        } catch (error) {
+          console.error("Error processing agreement:", error);
+          res.status(500).json({
+            success: false,
+            message: "Internal server error",
+          });
+        }
       });
     });
 
