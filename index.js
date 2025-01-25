@@ -21,7 +21,7 @@ app.use(
 app.use(express.json());
 app.use(cookieParser());
 
-const verifyToken = (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   const token = req.cookies?.token;
 
   if (!token) {
@@ -140,76 +140,108 @@ async function run() {
         success: true,
         data: user,
       });
+    });
 
-      app.post("/agreement", verifyToken, async (req, res) => {
-        const { userId, apartmentId, agreementDate } = req.body;
+    app.post("/agreement", verifyToken, async (req, res) => {
+      const { userId, apartmentId, agreementDate } = req.body;
 
-        if (!userId || !apartmentId || !agreementDate) {
-          return res.status(400).json({
+      if (!userId || !apartmentId || !agreementDate) {
+        return res.status(400).json({
+          success: false,
+          message: "Missing required fields",
+        });
+      }
+
+      try {
+        const apartment = await ApartmentCollections?.findOne({
+          _id: new mongoose.Types.ObjectId(apartmentId),
+        });
+
+        if (apartment?.isBooking) {
+          return res.status(404).json({
             success: false,
-            message: "Missing required fields",
+            message: "Apartment already booked",
           });
         }
 
-        try {
-          const apartment = await ApartmentCollections?.findOne({
-            _id: new mongoose.Types.ObjectId(apartmentId),
-          });
+        const user = await UserCollections.findOne({
+          _id: new mongoose.Types.ObjectId(userId),
+        });
 
-          if (apartment?.isBooking) {
-            return res.status(404).json({
-              success: false,
-              message: "Apartment already booked",
-            });
-          }
-          // Update the apartment collection with booking details
-          const apartmentUpdate = await ApartmentCollections.updateOne(
-            { _id: new mongoose.Types.ObjectId(apartmentId) }, // Find apartment by ID
-            {
-              $set: {
-                isBooking: true,
-                userId: userId,
-                agreementDate: agreementDate,
-              },
-            }
-          );
-
-          if (apartmentUpdate.modifiedCount === 0) {
-            return res.status(404).json({
-              success: false,
-              message: "Apartment not found or already booked",
-            });
-          }
-
-          // Update the user collection with booked apartment ID
-          const userUpdate = await UserCollections.updateOne(
-            { _id: new mongoose.Types.ObjectId(userId) }, // Find user by ID
-            {
-              $set: {
-                bookingApartment: apartmentId,
-              },
-            }
-          );
-
-          if (userUpdate.modifiedCount === 0) {
-            return res.status(404).json({
-              success: false,
-              message: "User not found",
-            });
-          }
-
-          res.status(200).json({
-            success: true,
-            message: "Apartment booked successfully",
-          });
-        } catch (error) {
-          console.error("Error processing agreement:", error);
-          res.status(500).json({
+        if (user?.bookingApartment) {
+          return res.status(404).json({
             success: false,
-            message: "Internal server error",
+            message: "You Already booked a Apartment",
           });
         }
-      });
+        // Update the apartment collection with booking details
+        const apartmentUpdate = await ApartmentCollections.updateOne(
+          { _id: new mongoose.Types.ObjectId(apartmentId) }, // Find apartment by ID
+          {
+            $set: {
+              isBooking: true,
+              userId: userId,
+              agreementDate: agreementDate,
+            },
+          }
+        );
+
+        if (apartmentUpdate.modifiedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "Apartment not found or already booked",
+          });
+        }
+
+        // Update the user collection with booked apartment ID
+        const userUpdate = await UserCollections.updateOne(
+          { _id: new mongoose.Types.ObjectId(userId) }, // Find user by ID
+          {
+            $set: {
+              bookingApartment: apartmentId,
+            },
+          }
+        );
+
+        if (userUpdate.modifiedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "Apartment booked successfully",
+        });
+      } catch (error) {
+        console.error("Error processing agreement:", error);
+        res.status(500).json({
+          success: false,
+          message: "Internal server error",
+        });
+      }
+    });
+
+    app.get("/user-apartment", verifyToken, async (req, res) => {
+      const user = req.user;
+
+      try {
+        const apartment = await ApartmentCollections?.findOne({
+          _id: new mongoose.Types.ObjectId(user?.bookingApartment),
+        });
+
+        res.status(200).json({
+          success: true,
+          data: apartment,
+        });
+      } catch (error) {
+        console.error("Error processing agreement:", error);
+        res.status(500).json({
+          success: false,
+          message: "Internal server error",
+        });
+      }
     });
 
     console.log(
