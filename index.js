@@ -63,6 +63,10 @@ async function run() {
       .db("building_management")
       .collection("users");
 
+    const HistoryCollections = client
+      .db("building_management")
+      .collection("histories");
+
     app.get("/apartments", async (req, res) => {
       const result = await ApartmentCollections.find().toArray();
       res.status(200).json({
@@ -92,9 +96,10 @@ async function run() {
       });
     });
 
-    app.get("/users", async (req, res) => {
-      const data = req.body;
-      const result = await UserCollections.find().toArray();
+    app.get("/users", verifyToken, async (req, res) => {
+      const result = await UserCollections.find({
+        role: { $ne: "admin" },
+      }).toArray();
       res.status(200).json({
         success: true,
         data: result,
@@ -140,6 +145,23 @@ async function run() {
       res.status(200).json({
         success: true,
         data: user,
+      });
+    });
+
+    app.get("/apartments-payments", verifyToken, async (req, res) => {
+      const user = req.user;
+
+      if (user?.role !== "admin") {
+        res.status(401).json({
+          success: false,
+          message: "You can not access in this route",
+        });
+      }
+
+      const result = await HistoryCollections?.find().toArray();
+      res.status(200).json({
+        success: true,
+        data: result,
       });
     });
 
@@ -268,6 +290,55 @@ async function run() {
         res.status(500).json({ message: "Internal server error" });
       }
     });
+
+    app.get("/get-user-history", verifyToken, async (req, res) => {
+      const user = req?.user;
+      const response = await HistoryCollections.find({
+        userId: user?._id,
+      }).toArray();
+
+      res.status(200).json({
+        success: true,
+        data: response,
+      });
+    });
+
+    app.post("/create-payment-history", verifyToken, async (req, res) => {
+      try {
+        const data = req.body;
+        const response = await HistoryCollections.insertOne(data);
+
+        res.status(200).json({
+          success: true,
+          data: response,
+        });
+      } catch (error) {
+        console.error("Error creating Stripe payment intent:", error);
+        res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    app.patch(
+      "/update-payment-history-status",
+      verifyToken,
+      async (req, res) => {
+        try {
+          const { id, action } = req.body;
+          const response = await HistoryCollections.updateOne(
+            { _id: new ObjectId(id) }, // Filter to find the document by ID
+            { $set: { status: action } } // Update the status field with the new action
+          );
+
+          res.status(200).json({
+            success: true,
+            data: response,
+          });
+        } catch (error) {
+          console.error("Error creating Stripe payment intent:", error);
+          res.status(500).json({ message: "Internal server error" });
+        }
+      }
+    );
 
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
