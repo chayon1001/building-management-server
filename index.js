@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { default: mongoose } = require("mongoose");
@@ -241,6 +242,30 @@ async function run() {
           success: false,
           message: "Internal server error",
         });
+      }
+    });
+
+    // Endpoint to create a Stripe checkout session
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      try {
+        const { apartmentId, amount } = req.body;
+
+        if (!apartmentId || !amount) {
+          return res.status(400).json({ message: "Missing required fields" });
+        }
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: amount * 100, // Convert to cents
+          currency: "usd",
+          metadata: {
+            apartmentId: apartmentId,
+            userId: req.user._id,
+          },
+        });
+
+        res.json({ clientSecret: paymentIntent.client_secret });
+      } catch (error) {
+        console.error("Error creating Stripe payment intent:", error);
+        res.status(500).json({ message: "Internal server error" });
       }
     });
 
