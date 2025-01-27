@@ -14,7 +14,11 @@ const port = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://skyline-apartments.vercel.app"],
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5175",
+      "https://skyline-apartments.vercel.app",
+    ],
     credentials: true,
   })
 );
@@ -130,6 +134,42 @@ async function run() {
         success: true,
         data: {
           user: user,
+          token: token,
+        },
+      });
+    });
+
+    app.post("/login-with-google", async (req, res) => {
+      const uid = req.body?.uid;
+      let logInUser = null;
+
+      const user = await UserCollections.findOne({ uid });
+
+      if (!user?._id) {
+        const newUser = await UserCollections.insertOne(req.body, {
+          new: true,
+        });
+        logInUser = {
+          _id: result.insertedId,
+          ...req.body,
+        };
+        console.log(newUser);
+      } else {
+        logInUser = user;
+      }
+
+      const token = jwt.sign(
+        { ...logInUser },
+        process.env.JWT_SECRET_KEY, // Secret key from environment variable
+        { expiresIn: "24h" } // Token expiration time
+      );
+      // console.log(logInUser);
+      // console.log(token);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          user: logInUser,
           token: token,
         },
       });
