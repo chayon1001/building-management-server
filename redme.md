@@ -51,7 +51,3 @@ Live Server URL : https://skyline-apartments.vercel.app/
 - Firebase Authentication
 
 - TanStack Query
-
-- Nodemailer (for email notifications)
-
-- dotenv (for environment variable management)
