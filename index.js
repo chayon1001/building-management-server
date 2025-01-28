@@ -1,8 +1,10 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
+
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
+const bodyParser = require("body-parser");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
@@ -10,6 +12,7 @@ const { default: mongoose } = require("mongoose");
 
 const app = express();
 const port = process.env.PORT || 5000;
+app.use(bodyParser.json());
 
 // Middleware
 app.use(
@@ -18,7 +21,9 @@ app.use(
       "http://localhost:5173",
       "http://localhost:5175",
       "http://localhost:5176",
+      "http://localhost:5177",
       "https://skyline-apartments.vercel.app",
+      "https://skyline-apartments-ek5nl6e65-harishankar186s-projects.vercel.app",
     ],
     credentials: true,
   })
@@ -73,6 +78,31 @@ async function run() {
     const HistoryCollections = client
       .db("building_management")
       .collection("histories");
+
+    const CouponCollections = client
+      .db("building_management")
+      .collection("coupons"); // Coupon Collection
+
+    // ✅ Coupon Routes (without Mongoose)
+    app.get("/api/coupons", async (req, res) => {
+      try {
+        const coupons = await CouponCollections.find().toArray();
+        res.json(coupons);
+      } catch (err) {
+        res.status(500).json({ error: "Failed to fetch coupons" });
+      }
+    });
+
+    app.post("/api/coupons", async (req, res) => {
+      const { code, discount, description } = req.body;
+      try {
+        const newCoupon = { code, discount, description };
+        const result = await CouponCollections.insertOne(newCoupon);
+        res.status(201).json(result);
+      } catch (err) {
+        res.status(400).json({ error: "Failed to create coupon" });
+      }
+    });
 
     app.get("/apartments", async (req, res) => {
       const result = await ApartmentCollections.find().toArray();
