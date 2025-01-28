@@ -17,6 +17,7 @@ app.use(
     origin: [
       "http://localhost:5173",
       "http://localhost:5175",
+      "http://localhost:5176",
       "https://skyline-apartments.vercel.app",
     ],
     credentials: true,
@@ -357,6 +358,43 @@ async function run() {
       } catch (error) {
         console.error("Error creating Stripe payment intent:", error);
         res.status(500).json({ message: "Internal server error" });
+      }
+    });
+
+    app.patch("/update-user-role/:id", verifyToken, async (req, res) => {
+      const { id } = req.params; // Get user ID from URL params
+      const { role } = req.body; // Get the role from the request body
+
+      if (!role || !["user", "admin"].includes(role)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid role provided",
+        });
+      }
+
+      try {
+        const user = await UserCollections.updateOne(
+          { _id: new mongoose.Types.ObjectId(id) }, // Find the user by ID
+          { $set: { role } } // Update the role
+        );
+
+        if (user.matchedCount === 0) {
+          return res.status(404).json({
+            success: false,
+            message: "User not found",
+          });
+        }
+
+        res.status(200).json({
+          success: true,
+          message: "User role updated successfully",
+        });
+      } catch (error) {
+        console.error("Error updating user role:", error);
+        res.status(500).json({
+          success: false,
+          message: "Internal server error",
+        });
       }
     });
 
