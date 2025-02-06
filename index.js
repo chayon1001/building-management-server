@@ -24,7 +24,8 @@ app.use(
       "http://localhost:5177",
       "https://skyline-apartments.vercel.app",
       "https://skyline-apartments-ek5nl6e65-harishankar186s-projects.vercel.app",
-      " https://skyline-apartments-q77rylott-harishankar186s-projects.vercel.app ",
+      "https://skyline-apartments-q77rylott-harishankar186s-projects.vercel.app",
+      "https://skyline-apartments-5gjilhph0-harishankar186s-projects.vercel.app",
     ],
     credentials: true,
   })
